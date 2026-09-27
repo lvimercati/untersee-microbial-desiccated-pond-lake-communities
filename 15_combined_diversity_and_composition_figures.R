@@ -1,3 +1,6 @@
+# Packages needed for the Figure 5 section (so the script runs in a fresh R session)
+library(vegan); library(dplyr); library(ggplot2); library(patchwork)
+
 # =============================================================================
 # COMBINED 16S + 18S FIGURES — Alpha/Beta Diversity (Figure 5) and Phylum-
 # Level Composition (Figure 2)
@@ -53,6 +56,10 @@ meta_bac$Environment <- factor(meta_bac$Environment, levels = c("Desiccated", "P
 #     needing to rebuild the full phyloseq/tree object again) ---
 varespec.uni_bac <- as.dist(read.csv("16S_UniFrac_Matrix_notufts.csv", row.names = 1, check.names = FALSE))
 ordu_bac <- cmdscale(varespec.uni_bac, eig = TRUE, k = 2)
+pos_bac  <- ordu_bac$eig[ordu_bac$eig > 0]
+pct1_bac <- round(100 * pos_bac[1] / sum(pos_bac), 1)
+pct2_bac <- round(100 * pos_bac[2] / sum(pos_bac), 1)
+cat("Fig. 5C (16S): PC1 =", pct1_bac, "%, PC2 =", pct2_bac, "%\n")
 pcoa_df_bac <- as.data.frame(ordu_bac$points)
 colnames(pcoa_df_bac) <- c("Axis.1", "Axis.2")
 pcoa_df_bac$Sample <- rownames(pcoa_df_bac)
@@ -76,6 +83,10 @@ meta_euk$Environment <- factor(meta_euk$Environment, levels = c("Desiccated", "P
 
 varespec.uni_euk <- as.dist(read.csv("18S_UniFrac_Matrix_notufts.csv", row.names = 1, check.names = FALSE))
 ordu_euk <- cmdscale(varespec.uni_euk, eig = TRUE, k = 2)
+pos_euk  <- ordu_euk$eig[ordu_euk$eig > 0]
+pct1_euk <- round(100 * pos_euk[1] / sum(pos_euk), 1)
+pct2_euk <- round(100 * pos_euk[2] / sum(pos_euk), 1)
+cat("Fig. 5D (18S): PC1 =", pct1_euk, "%, PC2 =", pct2_euk, "%\n")
 pcoa_df_euk <- as.data.frame(ordu_euk$points)
 colnames(pcoa_df_euk) <- c("Axis.1", "Axis.2")
 pcoa_df_euk$Sample <- rownames(pcoa_df_euk)
@@ -121,52 +132,42 @@ cld_results_euk <- data.frame(
 meta_euk <- merge(meta_euk, cld_results_euk, by = "Environment", all.x = TRUE)
 meta_euk$Environment <- factor(meta_euk$Environment, levels = c("Desiccated", "Pond", "Lake"))
 # -----------------------------------------------------------------------
-# Panel A — Bacterial (16S) Alpha Diversity
+# Panels A and B — Alpha diversity (ASV richness) PER SAMPLE TYPE,
+# grouped by habitat (dashed dividers + habitat labels), Type colour,
+# Environment shape — same layout as the per-type plots in scripts 01/02
 # -----------------------------------------------------------------------
-panel_A <- ggplot(meta_bac, aes(x = Environment, y = bac_Rich, colour = Environment)) +
-  geom_boxplot(outlier.shape = NA) +
-  geom_point(size = 4, alpha = 0.5) +
-  scale_colour_manual(values = env_colours) +
-  labs(x = NULL, y = "ASV Richness", title = "16S rRNA gene Alpha Diversity") +
-  theme_bw() +
-  ylim(0, max(meta_bac$bac_Rich, na.rm = TRUE) * 1.15) +
-  theme(legend.position = "none",
-        plot.title    = element_text(size = 14),
-        axis.title.x  = element_text(face = "bold", size = 14, vjust = -2),
-        axis.text.x   = element_text(size = 11, angle = 45, hjust = 1),
-        axis.text.y   = element_text(size = 11),
-        axis.title.y  = element_text(face = "bold", size = 14, vjust = 4),
-        plot.margin   = unit(c(0.5, 0.5, 0.5, 0.5), "cm")) +
-  geom_text(data = unique(meta_bac[, c("Environment", "Letter")]),
-            aes(x = Environment, y = max(meta_bac$bac_Rich, na.rm = TRUE) * 1.05, label = Letter),
-            color = "black", size = 5, fontface = "bold", vjust = 0)
+type_order <- c(
+  "Untersee Desiccated Mat", "Snow Petrel Desiccated Mat",
+  "Avalanche pond", "Eastern lateral moraine pond", "Southern pond",
+  "Western lateral moraine pond",
+  "flat mat", "pinnacle", "cone"
+)
+meta_bac$Type <- factor(meta_bac$Type, levels = type_order)
+meta_euk$Type <- factor(meta_euk$Type, levels = type_order)
 
-# -----------------------------------------------------------------------
-# Panel B — Eukaryotic (18S) Alpha Diversity
-# NOTE: adjust y-limits/column names (euk_Rich, Letter) to match whatever
-# object names the eukarya script actually produced — mirrored here from
-# the bacterial script's structure.
-# -----------------------------------------------------------------------
-panel_B <- ggplot(meta_euk, aes(x = Environment, y = euk_Rich, colour = Environment)) +
-  geom_boxplot(outlier.shape = NA) +
-  geom_point(size = 4, alpha = 0.5) +
-  scale_colour_manual(values = env_colours) +
-  labs(x = NULL, y = "ASV Richness", title = "18S rRNA gene Alpha Diversity") +
-  theme_bw() +
-  ylim(0, max(meta_euk$euk_Rich, na.rm = TRUE) * 1.25) +
-  theme(legend.position = "none",
-        plot.title    = element_text(size = 14),
-        axis.title.x  = element_text(face = "bold", size = 14, vjust = -2),
-        axis.text.x   = element_text(size = 11, angle = 45, hjust = 1),
-        axis.text.y   = element_text(size = 11),
-        axis.title.y  = element_text(face = "bold", size = 14, vjust = 4),
-        plot.margin   = unit(c(0.5, 0.5, 0.5, 0.5), "cm")) +
-  geom_text(data = unique(meta_euk[, c("Environment", "Letter")]),
-            aes(x = Environment, y = max(meta_euk$euk_Rich, na.rm = TRUE) * 1.15, label = Letter),
-            color = "black", size = 5, fontface = "bold", vjust = 0)
+alpha_type_panel <- function(meta, rich_col, title, y_lim, y_lab) {
+  ggplot(meta, aes(x = Type, y = .data[[rich_col]], colour = Type, shape = Environment)) +
+    geom_boxplot(outlier.shape = NA, fill = NA, linewidth = 0.7) +
+    geom_point(size = 4, alpha = 0.7) +
+    scale_colour_manual(values = type_colours, breaks = type_order) +
+    scale_shape_manual(values = env_shapes) +
+    labs(x = NULL, y = "ASV Richness", title = title) +
+    ylim(y_lim) +
+    geom_vline(xintercept = c(2.5, 6.5), linetype = "dashed", colour = "grey50", linewidth = 0.5) +
+    annotate("text", x = 1.5, y = y_lab, label = "Desiccated", size = 3.5, fontface = "bold", colour = "#E31A1C") +
+    annotate("text", x = 4.5, y = y_lab, label = "Pond",       size = 3.5, fontface = "bold", colour = "#1F78B4") +
+    annotate("text", x = 8,   y = y_lab, label = "Lake",       size = 3.5, fontface = "bold", colour = "#33A02C") +
+    theme_bw() +
+    theme(legend.position = "none",
+          plot.title    = element_text(size = 14, face = "bold"),
+          axis.text.x   = element_text(size = 10, angle = 45, hjust = 1),
+          axis.text.y   = element_text(size = 11),
+          axis.title.y  = element_text(face = "bold", size = 14, vjust = 4),
+          plot.margin   = unit(c(0.5, 0.5, 0.5, 0.5), "cm"))
+}
 
-# If euk alpha diversity also has significance letters (cld_results equivalent),
-# add the same geom_text() layer as panel_A here, matching column names.
+panel_A <- alpha_type_panel(meta_bac, "bac_Rich", "16S rRNA gene Alpha Diversity", c(100, 560), 540)
+panel_B <- alpha_type_panel(meta_euk, "euk_Rich", "18S rRNA gene Alpha Diversity", c(15, 195), 185)
 
 # -----------------------------------------------------------------------
 # Ensure Type factor levels are set in the desired legend order:
@@ -207,10 +208,10 @@ panel_C <- ggplot(meta_bac, aes(Axis.1, Axis.2)) +
   scale_colour_manual(values = type_colours, breaks = type_order) +
   scale_fill_manual(values = type_colours, breaks = type_order) +
   scale_shape_manual(values = env_shapes) +
-  labs(x = "PC1: 35.15%", y = "PC2: 26.58%", title = "16S rRNA gene Beta Diversity") +
+  labs(x = paste0("PC1: ", pct1_bac, "%"), y = paste0("PC2: ", pct2_bac, "%"), title = "16S rRNA gene Beta Diversity") +
   theme_bw() +
   theme(legend.position = "none",   # legend shown once, on panel D
-        plot.title    = element_text(size = 14),
+        plot.title    = element_text(size = 14, face = "bold"),
         axis.title.x  = element_text(face = "bold", size = 14, vjust = 2),
         axis.title.y  = element_text(face = "bold", size = 14, vjust = 2),
         axis.text     = element_text(size = 11),
@@ -227,10 +228,10 @@ panel_D <- ggplot(meta_euk, aes(Axis.1, Axis.2)) +
   scale_colour_manual(values = type_colours, breaks = type_order) +
   scale_fill_manual(values = type_colours, breaks = type_order) +
   scale_shape_manual(values = env_shapes) +
-  labs(x = "PC1: 59.1%", y = "PC2: 46.79%", title = "18S rRNA gene Beta Diversity") +
+  labs(x = paste0("PC1: ", pct1_euk, "%"), y = paste0("PC2: ", pct2_euk, "%"), title = "18S rRNA gene Beta Diversity") +
   theme_bw() +
   theme(legend.position = "right",
-        plot.title    = element_text(size = 14),
+        plot.title    = element_text(size = 14, face = "bold"),
         axis.title.x  = element_text(face = "bold", size = 14, vjust = 2),
         axis.title.y  = element_text(face = "bold", size = 14, vjust = 2),
         axis.text     = element_text(size = 11),
@@ -245,15 +246,13 @@ panel_D <- ggplot(meta_euk, aes(Axis.1, Axis.2)) +
 # Combine into a single 2x2 figure with panel labels A-D and one shared legend
 # -----------------------------------------------------------------------
 combined_4panel <- (panel_A | panel_B) / (panel_C | panel_D) +
-  plot_annotation(tag_levels = "A") &
+  plot_annotation(tag_levels = "A", tag_suffix = ")") &
   theme(plot.tag = element_text(size = 16, face = "bold"))
 
 setwd("~/Desktop/Research_Projects/Lake_Untersee/Dry_mats/No tufts/")
 
 # 1. Widen the discrete x-axis spacing in panels A and B specifically,
 #    so the boxplots aren't crushed together
-panel_A <- panel_A + scale_x_discrete(expand = expansion(add = 0.6))
-panel_B <- panel_B + scale_x_discrete(expand = expansion(add = 0.6))
 
 # 2. Increase overall figure width to accommodate panel D's legend
 #    without squeezing the plot areas

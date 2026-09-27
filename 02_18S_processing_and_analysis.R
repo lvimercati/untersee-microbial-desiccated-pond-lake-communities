@@ -608,14 +608,19 @@ family_permanova_18s <- run_level_permanova_18s("taxonomy4")
 genus_permanova_18s  <- run_level_permanova_18s("taxonomy6")
 
 # PCoA
+set.seed(42)  # UniFrac roots the unrooted tree at a random tip; seed makes this reproducible
 ordu <- ordinate(tot, "PCoA", "unifrac", weighted = TRUE)
 df   <- as.data.frame(as.matrix(ordu$vectors))
 df$sample <- row.names(df)
 meta_euk$Axis.1 <- df$Axis.1
 meta_euk$Axis.2 <- df$Axis.2
 eig2 <- ordu$values$Eigenvalues
-pct1 <- round(eig2[1] / sum(eig2) * 100, 2)
-pct2 <- round(eig2[2] / sum(eig2) * 100, 2)
+# Axis % relative to the sum of POSITIVE eigenvalues (weighted UniFrac is non-Euclidean
+# and yields small negative eigenvalues, which would otherwise inflate the percentages)
+pos2 <- eig2[eig2 > 0]
+pct1 <- round(100 * pos2[1] / sum(pos2), 1)
+pct2 <- round(100 * pos2[2] / sum(pos2), 1)
+cat("18S PCoA (script plots): PC1 =", pct1, "%, PC2 =", pct2, "%\n")
 
 find_hull  <- function(df) df[chull(df$Axis.1, df$Axis.2), ]
 find_hulls <- function(df) df[chull(df$Axis.1, df$Axis.2), ]
@@ -624,7 +629,7 @@ micro.hulls.euk <- meta_euk %>% group_by(Environment) %>% do(find_hulls(.))
 pdf("Euk_Beta_Diversity_notufts.pdf", width = 7.78, height = 5)
 ggplot(meta_euk, aes(Axis.1, Axis.2)) +
   geom_point(size = 4, aes(colour = Environment), alpha = 0.5) +
-  labs(x = "PC1: 59.1%", y = "PC2: 46.79%",
+  labs(x = paste0("PC1: ", pct1, "%"), y = paste0("PC2: ", pct2, "%"),
        title = "18S rRNA gene Beta Diversity (tufts excluded)") +
   geom_polygon(data = micro.hulls.euk, aes(colour = Environment, fill = Environment),
                alpha = 0.1, linewidth = 0.25, show.legend = F) +
@@ -692,7 +697,7 @@ ggplot(meta_euk, aes(Axis.1, Axis.2)) +
   geom_text_repel(data = sub_euk, aes(x = LabelX, y = LabelY, label = shortnames),
                   size = 4, colour = "black", nudge_x = 0.02, nudge_y = 0.02,
                   segment.size = 0, segment.color = NA, inherit.aes = FALSE) +
-  labs(x = "PC1: 59.1%", y = "PC2: 46.79%",
+  labs(x = paste0("PC1: ", pct1, "%"), y = paste0("PC2: ", pct2, "%"),
        title = "18S rRNA gene Beta Diversity (tufts excluded)") +
   theme_bw() +
   theme(legend.position = "right",
@@ -737,7 +742,7 @@ ggplot(meta_euk, aes(Axis.1, Axis.2)) +
   scale_colour_manual(values = type_colours) +
   scale_fill_manual(values   = type_colours) +
   scale_shape_manual(values  = c("Lake" = 16, "Pond" = 17, "Desiccated" = 15)) +
-  labs(x = "PC1: 59.1%", y = "PC2: 46.79%",
+  labs(x = paste0("PC1: ", pct1, "%"), y = paste0("PC2: ", pct2, "%"),
        title = "18S rRNA gene - Weighted UniFrac by sample type (tufts excluded)",
        colour = "Sample Type", shape = "Habitat") +
   theme_bw() +
@@ -765,7 +770,7 @@ ggplot(meta_euk, aes(Axis.1, Axis.2)) +
   scale_colour_manual(values = type_colours) +
   scale_fill_manual(values   = type_colours) +
   scale_shape_manual(values  = c("Lake" = 16, "Pond" = 17, "Desiccated" = 15)) +
-  labs(x = "PC1: 59.1%", y = "PC2: 46.79%",
+  labs(x = paste0("PC1: ", pct1, "%"), y = paste0("PC2: ", pct2, "%"),
        title = "18S rRNA gene - Sample types within habitat boundaries (tufts excluded)",
        colour = "Sample Type", shape = "Habitat") +
   theme_bw() +
